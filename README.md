@@ -263,7 +263,7 @@ Third row is possible second rows and every possible permutations of the first r
 In contrast restricting symbols to 1-9 will create 948,109,639,680, possible floors. [Sudopedia](http://sudopedia.enjoysudoku.com/Mathematics_of_Sudoku.html#5.2C524.2C751.2C496.2C156.2C892.2C842.2C531.2C225.2C600) suggests that 2,612,736 possible floors can be reduced to 416 unique floors, but this has not been verified here yet.
 
 ### Row Compression
-Every row is the combination of three sub-rows. Every sub-row is a three trio of nine possible symbols, a total of 84 possible combinations. To reduce memory usage, we can encode each sub-row with a corresponding ascii character. For example, [1,2,3,4,5,6,7,8,9] could encode to [ '!' , '^' , '&' ]. In reversed order, [ '!' , '^' , '&' ] will decode to [1,2,3,4,5,6,7,8,9]. This encoding provides significant lower memory use at a very low cost of execution time.
+Every row is the permutation of three sub-rows. Every sub-row is a three trio of nine possible symbols. To reduce memory usage, we can encode each sub-row with a corresponding ascii character. For example, [1,2,3,4,5,6,7,8,9] could encode to [ '!' , '^' , '&' ]. In reversed order, [ '!' , '^' , '&' ] will decode to [1,2,3,4,5,6,7,8,9]. This encoding provides significant lower memory use at a very low cost of execution time.
 
 ## Contributing
 
