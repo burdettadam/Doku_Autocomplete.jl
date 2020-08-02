@@ -264,3 +264,7 @@ In contrast restricting symbols to 1-9 will create 948,109,639,680, possible flo
 
 ### Row Compression
 Every row is the combination of three sub-rows. Every sub-row is a three trio of nine possible symbols, a total of 84 possible combinations. To reduce memory usage, we can encode each sub-row with a corresponding ascii character. For example, [1,2,3,4,5,6,7,8,9] could encode to [ '!' , '^' , '&' ]. In reversed order, [ '!' , '^' , '&' ] will decode to [1,2,3,4,5,6,7,8,9]. This encoding provides significant lower memory use at a very low cost of execution time.
+
+## Contributing
+
+Issues and pull requests are welcome!
