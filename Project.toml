@@ -1,0 +1,13 @@
+name = "Doku_Autocomplete"
+uuid = "06ca0970-9112-4b79-81fb-c1d3ffced68e"
+authors = ["Adam Burdett <burdettadam@gmail.com> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
