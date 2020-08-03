@@ -11,11 +11,7 @@ char = 33
     sub = join(combo)
     key = Char(char)
     #@test haskey(decoding,key)
-    #@test decoding{key} == combo
     @test haskey(encoding,sub)
-    if haskey(encoding,sub)
-        #@test encoding{sub} == key
-    end
     char += 1
     end
 end
