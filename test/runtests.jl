@@ -3,6 +3,8 @@ using Test
 using Combinatorics
 using ProgressMeter
 
+include("solved_Sudokus.jl")
+
 @testset "encode/decode symbols" begin
 encoding = doku_encode_map()
 decoding = doku_decode_map()
@@ -18,7 +20,6 @@ end
 
 @testset "row encoding" begin
 
-
     first = ['A','B','C','D','E','F','G','H','I']
     row_permutations = Combinatorics.permutations(first) |> collect 
     row_permutations_size = length(row_permutations)
@@ -33,6 +34,9 @@ end
 end
 
 @testset "Doku_Autocomplete.jl" begin
-    @test true
-    # Write your tests here.
+    sds = sudoku_cipher_text()
+    @test length(sds) == 12096
+    for index in 1:length(hard_puzzle)
+        sudoku_autocomplete(hard_puzzle[index],sds)
+    end
 end

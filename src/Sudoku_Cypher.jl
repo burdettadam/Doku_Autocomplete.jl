@@ -1,5 +1,6 @@
 using Combinatorics
 using ProgressMeter
+using DataStructures
 using JLD
 
 function unique(a::Array{Char,1},b::Array{Char,1})
@@ -69,29 +70,89 @@ function generate_cypher()
     first = ['A','B','C','D','E','F','G','H','I']
     row_permutations = Combinatorics.permutations(first) |> collect 
     row_permutations_size = length(row_permutations)
-    encoding = encoding()
     #println(row_permutations_size)
-    ciphertext = Dict{String,Array{Array{Char,1},1}}()
-    trios = Array{Array{Array{Char,1},1},1}()
-    #trios = load("/tmp/myfile.jld")
+    ciphertext = Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}()
+    #ciphertext = Trie()
     @showprogress for i = 1:row_permutations_size # for every possible 2nd row
         @inbounds second = row_permutations[i]
+        thirds = []
         if  is_duko(first , second)
             for j = 1:row_permutations_size # for every possible 3rd row
                 @inbounds third = row_permutations[j]
                 if is_soduko( first , second, third)
-                    push!(trios,[second, third])
-                    break
+                    #word = join(second)*join(third)
+                    push!(thirds,third)
+                end
+            end
+        end
+        if !isempty(thirds)
+            push!(ciphertext,(second,thirds))
+        end
+    end
+    println(length(ciphertext))
+    key = "Sudoku_second_third_rows"
+    save(joinpath(@__DIR__,join([key,".jld"])), key, ciphertext)
+    println("------------ completed ------------")
+end
+
+function sudoku_cipher_text()::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}
+    sudokuCipherText = Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}()
+    try#todo: if load fails raise error or generate_cypher
+        println("loading Sudoku Data Structure")
+        _sudokuCipherText = load(joinpath(@__DIR__,"Sudoku_second_third_rows.jld"))
+        sudokuCipherText = _sudokuCipherText["Sudoku_second_third_rows"]
+        #Todo: actually check if loaded correctly
+        #println(length(sudokuCipherText))
+        println("Sudoku Data Structure loaded successfully")
+    catch e
+        println("Sudoku DataStructure failed to load, please run Sudoku generater")
+        println(e)
+        #generate_cypher()# takes around 19 minutes on a mac pro
+    end
+    return sudokuCipherText
+end
+
+function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
+    # build partial mapping for cypher from first row, example, 4 => B, 5=>c.
+    # then use this mapping to generate regular expression for second row and third row
+    mapping = Dict()
+    origin = ['A','B','C','D','E','F','G','H','I']
+    # first floor ---------------------------------
+    for idx in [1,2,3,4,5,6,7,8,9]
+        if puzzle[1][idx] != 0 # is a hint of the pattern used
+            mapping[puzzle[1][idx]] = origin[idx]
+        end
+    end
+    # floor regular expression
+    second = ['.','.','.','.','.','.','.','.','.']
+    third = ['.','.','.','.','.','.','.','.','.']
+    for idx in [1,2,3,4,5,6,7,8,9]
+        if puzzle[2][idx] != 0
+            if haskey(mapping,puzzle[2][idx])
+                second[idx] = mapping[puzzle[2][idx]]
+            end
+        end
+        if puzzle[3][idx] != 0
+            if haskey(mapping,puzzle[3][idx])
+                third[idx] = mapping[puzzle[3][idx]]
+            end
+        end
+    end
+    second_regx = Regex(join(second))
+    third_regx = Regex(join(third))
+    possible_floors = Array{Tuple{Array{Char,1},Array{Char,1}},1}()
+    for idx in 1:12096 #length(sds)
+        if occursin(second_regx,join(sds[idx][1]))
+            for kdx in 1: length(sds[idx][2])
+                if occursin(third_regx,join(sds[idx][2][kdx]))
+                    println("4 ",(sds[idx][1],sds[idx][2][kdx]))
+                    push!(possible_floors,(sds[idx][1],sds[idx][2][kdx]))
                 end
             end
         end
     end
-    @inbounds s_trios = [encode(trios[l]) for l = 1:length(trios)]
-    println(length(trios))
-    key = "Sudoku_123_rows" #join(first_row)
-    save(joinpath(@__DIR__,"sets/",join([key,".jld"])), key, trios)
-    #combos = nothing
-    println("------------ completed ------------")
+    println(length(possible_floors))
+    return puzzle
 end
 
-#generate_cypher()
+#sudoku_cipher_text()
