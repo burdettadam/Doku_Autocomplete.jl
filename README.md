@@ -264,6 +264,7 @@ In contrast restricting symbols to 1-9 will create 948,109,639,680, possible flo
 
 #### Conjecture
 Any pattern that can be represented by a multi-dimensional grid, where each dimension is a unique set restricted by a corresponding rule, Dn = R(n), and where k number of a single dimension sets act as a pivot that contain as a subset the single dimension set of all other dimension, then all patterns of that grid can be constructed from all possible k sets of the same dimension.
+This may be a special form of combinatorics "Ringel's Conjecture", which has been [proven](https://arxiv.org/abs/2001.02665).
 
 ### Row Compression
 Every row is the permutation of three sub-rows. Every sub-row is a three trio of nine possible symbols. To reduce memory usage, we can encode each sub-row with a corresponding ascii character. For example, [1,2,3,4,5,6,7,8,9] could encode to [ '!' , '^' , '&' ]. In reversed order, [ '!' , '^' , '&' ] will decode to [1,2,3,4,5,6,7,8,9]. This encoding provides significant lower memory use at a very low cost of execution time.
