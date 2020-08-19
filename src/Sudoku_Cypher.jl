@@ -54,6 +54,48 @@ function is_tower(first::Array{Char,1}, second::Array{Char,1}, third::Array{Char
     true
 end
 
+function is_block_tower(first::Array{Char,1}, second::Array{Char,1})
+    for idx in [1,2,3]
+        for jdx in [idx,idx+3,idx+6]
+            @inbounds second[idx] == first[jdx] && return false # fourth row check
+        end
+    end
+    for idx in [4,5,6]
+        for jdx in [idx-3,idx,idx+3]
+            @inbounds second[idx] == first[jdx] && return false 
+        end
+    end
+    for idx in [7,8,9]
+        for jdx in [idx-6,idx-3,idx]
+            @inbounds second[idx] == first[jdx] && return false 
+        end
+    end
+    true
+end
+
+function is_soduko_block_tower(first::Array{Char,1}, second::Array{Char,1}, third::Array{Char,1})
+    #= first and second must be valid tower blocks=#
+    for idx in [1,2,3]
+        for jdx in [idx,idx+3,idx+6]
+            @inbounds third[idx] == first[jdx] && return false 
+            @inbounds third[idx] == second[jdx] && return false 
+        end
+    end
+    for idx in [4,5,6]
+        for jdx in [idx-3,idx,idx+3]
+            @inbounds third[idx] == first[jdx] && return false 
+            @inbounds third[idx] == second[jdx] && return false 
+        end
+    end
+    for idx in [7,8,9]
+        for jdx in [idx-6,idx-3,idx]
+            @inbounds third[idx] == first[jdx] && return false 
+            @inbounds third[idx] == second[jdx] && return false 
+        end
+    end
+    true
+end
+
 function is_tall_tower(first::Array{Char,1}, second::Array{Char,1}, third::Array{Char,1}, fourth::Array{Char,1}, fifth::Array{Char,1}, sixth::Array{Char,1}, seventh::Array{Char,1})
     for idx = [1,2,3,4,5,6,7,8,9]
         seventh[idx] == sixth[idx] && return false
@@ -66,14 +108,52 @@ function is_tall_tower(first::Array{Char,1}, second::Array{Char,1}, third::Array
     true
 end
 
-
+function generate_sudoku_floor_tower()
+    sds = sudoku_cipher_text() # second_row : [third_rows]
+    for idx in 1:12096 #length(sds) # for every possible sudoku second/third pairs
+        sds[idx][1]
+        if occursin(regex[1], ex) # first row
+            Print(here,)
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex[2],ex_) # second row
+                    push!(possible_rows[1],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex_t[1], ex) # first column
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex_t[2],ex_) # second column
+                    push!(possible_columns[1],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex[9], ex) # last row
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex[8],ex_) # second row
+                    push!(possible_rows[9],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex_t[9], ex) # last column
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex_t[8],ex_) # second column
+                    push!(possible_columns[9],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+    end
+end
 
 function generate_cypher()
     first = ['A','B','C','D','E','F','G','H','I']
     row_permutations = Combinatorics.permutations(first) |> collect 
     row_permutations_size = length(row_permutations)
     #println(row_permutations_size)
-    ciphertext = Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}()
+    ciphertext = Array{Tuple{String,Array{String,1}},1}()
     #ciphertext = Trie()
     @showprogress for i = 1:row_permutations_size # for every possible 2nd row
         @inbounds second = row_permutations[i]
@@ -83,16 +163,44 @@ function generate_cypher()
                 @inbounds third = row_permutations[j]
                 if is_soduko( first , second, third)
                     #word = join(second)*join(third)
-                    push!(thirds,third)
+                    push!(thirds,join(third))
                 end
             end
         end
         if !isempty(thirds)
-            push!(ciphertext,(second,thirds))
+            push!(ciphertext,(join(second),thirds))
         end
     end
     println(length(ciphertext))
-    key = "Sudoku_second_third_rows"
+    key = "Sudoku_second_third_rows_strs"
+    save(joinpath(@__DIR__,join([key,".jld"])), key, ciphertext)
+    println("------------ completed ------------")
+end
+
+function generate_cypher_block_towers()
+    first_block = ['A','B','C','D','E','F','G','H','I']
+    row_permutations = Combinatorics.permutations(first_block) |> collect 
+    row_permutations_size = length(row_permutations)
+    #println(row_permutations_size)
+    ciphertext = Array{Tuple{String,Array{String,1}},1}()
+    #ciphertext = Trie()
+    @showprogress for i = 1:row_permutations_size # for every possible 2nd row
+        @inbounds second_block = row_permutations[i]
+        third_blocks = []
+        if  is_block_tower(first_block , second_block)
+            for j = 1:row_permutations_size # for every possible 3rd row
+                @inbounds third_block = row_permutations[j]
+                if is_soduko_block_tower( first_block , second_block, third_block)
+                    push!(third_blocks,join(third_block))
+                end
+            end
+        end
+        if !isempty(third_blocks)
+            push!(ciphertext,(join(second_block),third_blocks))
+        end
+    end
+    println(length(ciphertext))
+    key = "Sudoku_second_third_block_tower"
     save(joinpath(@__DIR__,join([key,".jld"])), key, ciphertext)
     println("------------ completed ------------")
 end
@@ -148,7 +256,7 @@ function sudoku_cipher_text()::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}}
     return sudokuCipherText
 end
 
-function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
+#= function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
     # build partial mapping for cypher from first row, example, 4 => B, 5=>c.
     # then use this mapping to generate regular expression for second row and third row
 
@@ -392,4 +500,102 @@ function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sds::Array{Tuple{Ar
 end
 
 #sudoku_cipher_text()
-generate_cypher_forth_row()
+generate_cypher_forth_row() =#
+
+function sudoku_autocomplete(_puzzle::Array{Array{Int64,1},1} ,sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
+    #= 
+    stratigie: given a puzzle and Sudoku Data Structure, transpose first, second, eighth and ninth columns. Convert transpose columns and rows 
+    first, second, eight and ninth into regular expressions using provided hints. Search Sudoku data structure using regular 
+    expressions to find possible column and row pairs. reduce possible column and row pairs to only pairs where the begining 
+    and end match, the intersection of each corner. transpose third and seventh columns, then convert third and seventh columns/rows 
+    to regular expressions. find all possible pairs of second and third, eighth and seventh, reduce on pairs where first second and 
+    seventh and ninth are valid pairs in Sudoku data structure. Reduce possible third and eighth by intersection of Sudoku corner blocks.
+    at this point, the first and last floor/tower with the four edge blocks has all possible solution. for each solved possible 
+    tower/floor, find the center 3 rows/columns using the same algorithm as above.
+    =#
+
+    origin = Dict(0=>".",1=>"A",2=>"B",3=>"C",4=>"D",5=>"E",6=>"F",7=>"G",8=>"H",9=>"I")
+
+    # make copy of puzzle, convert to Alphabet sudoku
+    puzzle = Array{Array{String,1},1}(undef,9)
+    puzzle_t = Array{Array{String,1},1}(undef,9)
+    for i = 1:9
+        puzzle[i] = ["","","","","","","","",""]
+        puzzle_t[i] = ["","","","","","","","",""]
+    end
+
+    for idx in 1:9
+        for jdx in 1:9
+            puzzle[idx][jdx] = origin[_puzzle[idx][jdx]]
+            # transpose puzzle
+            puzzle_t[jdx][idx] = puzzle[idx][jdx]
+        end
+    end
+
+    # create regular expressions
+    regex = Array{Regex,1}(undef,9)
+    regex_t = Array{Regex,1}(undef,9)
+    
+    for row in 1:9        
+            regex[row] = Regex( join(puzzle[row]) )
+            regex_t[row] = Regex( join(puzzle_t[row]) )
+            println(regex[row])
+            println(regex_t[row])
+    end
+
+
+    possible_rows = Dict()
+    possible_columns = Dict()
+
+    for idx = 1:9
+        possible_rows[idx] = Array{Tuple{Array{Char,1},Array{Char,1}},1}()
+        possible_columns[idx] = Array{Tuple{Array{Char,1},Array{Char,1}},1}()
+    end
+
+    for idx in 1:12096 #length(sds) # for every possible sudoku pairs
+        ex = join(sds[idx][1])
+        if occursin(regex[1], ex) # first row
+            Print(here,)
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex[2],ex_) # second row
+                    push!(possible_rows[1],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex_t[1], ex) # first column
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex_t[2],ex_) # second column
+                    push!(possible_columns[1],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex[9], ex) # last row
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex[8],ex_) # second row
+                    push!(possible_rows[9],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+        if occursin(regex_t[9], ex) # last column
+            for kdx in 1: length(sds[idx][2])
+                ex_ = join(sds[idx][2][kdx]) # for every coupled pair
+                if occursin(regex_t[8],ex_) # second column
+                    push!(possible_columns[9],(sds[idx][1],sds[idx][2][kdx]))
+                end
+            end
+        end
+    end
+
+    println("possible 1/2 row ",length(possible_rows[1]))
+    println("possible 1/2 column ",length(possible_columns[1]))
+    println("possible 9/8 row ",length(possible_rows[9]))
+    println("possible 9/8 column ",length(possible_columns[9]))
+
+end
+#sudoku_cipher_text()
+#generate_cypher_forth_row()
+#generate_cypher()
+generate_cypher_block_towers()
