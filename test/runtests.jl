@@ -34,9 +34,20 @@ end
 end
 
 @testset "Doku_Autocomplete.jl" begin
-    sds = sudoku_cipher_text()
-    @test length(sds) == 12096
+    @test length(sfds) == 12096
+    unknowns = ['C','F','G']
+    regex_trio = "HI(?<C>[^AEHBID])B.E(?<G>[^AEHBID])DA[^AEHBID].BEA.I.D" #second row with unknowns
+    possible_trio_columns = [
+        ("HIGBCEFDA", "CFBEAHIGD"),
+        ("HIGBCEFDA", "CGBEAHIFD"),
+        ("HIGBFECDA", "FCBEAHIGD"),
+        ("HIGBFECDA", "FGBEAHICD")
+        ]
+    fixed_unkowns_index = Dict(['G'=>[(1,3)]])
+    satisfide = overlapping_tiles(unknowns, possible_trio_columns)
+    @test keys(satisfide) == keys(fixed_unkowns_index)
     for index in 1:length(hard_puzzle)
-        sudoku_autocomplete(hard_puzzle[index],sds)
+        sudoku_autocomplete(hard_puzzle[index],sfds,stds)
     end
+
 end

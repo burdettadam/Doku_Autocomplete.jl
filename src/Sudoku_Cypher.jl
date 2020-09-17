@@ -239,135 +239,166 @@ function generate_cypher_forth_row()
     println("------------ completed ------------")
 end
 
-function sudoku_cipher_text()::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}
+function sudoku_cipher_text()::Array{Tuple{String,Array{String,1}},1}
     sudokuCipherText = Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}()
     try#todo: if load fails raise error or generate_cypher
-        println("loading Sudoku Data Structure")
-        _sudokuCipherText = load(joinpath(@__DIR__,"Sudoku_second_third_rows.jld"))
-        sudokuCipherText = _sudokuCipherText["Sudoku_second_third_rows"]
+        println("loading Sudoku Floor Data Structure")
+        _sudokuCipherText = load(joinpath(@__DIR__,"Sudoku_Floor_Data_Structure.jld"))
+        sudokuCipherText = _sudokuCipherText["Sudoku_second_third_rows_strs"]
         #Todo: actually check if loaded correctly
         #println(length(sudokuCipherText))
-        println("Sudoku Data Structure loaded successfully")
+        println("Sudoku Floor Data Structure loaded successfully")
     catch e
         println("Sudoku DataStructure failed to load, please run Sudoku generater")
         println(e)
-        #generate_cypher()# takes around 19 minutes on a mac pro
+        #generate_cypher()# takes around 12 minutes on a mac pro
     end
     return sudokuCipherText
 end
 
-#= function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
-    # build partial mapping for cypher from first row, example, 4 => B, 5=>c.
-    # then use this mapping to generate regular expression for second row and third row
+function strs_to_chars!(strs)
+    for i =1:length(strs)
+        strs[i] = strs[i][1]
+    end
+end
+
+function unique_floor_candidate(possible_words)
+    satisfide = [true,true,true,true,true,true,true,true,true,
+    true,true,true,true,true,true,true,true,true]
+    for idx = 2:length(possible_words) # find all satisfide possitions
+        for jdx = 1:9
+            (possible_words[idx][1][jdx] != possible_words[idx-1][1][jdx]) && (satisfide[jdx] = false)
+            (possible_words[idx][2][jdx] != possible_words[idx-1][2][jdx]) && (satisfide[9+jdx] = false)
+        end
+    end
+        return satisfide
+end
+
+function overlapping_tiles(unknowns, possible_words)::Dict{Char,Array} # single elimination
+    #= 
+    given a list of unkown variables and a list of possible second and third rows, 
+    return a dictionary of known variables and the index of the cell in the word with the value.
+    satisfiability exposes variables that are determined by the pattern in the first/second row words. 
+    =#
+    strs_to_chars!(unknowns)
+
+    discovered = Dict{Char,Array}()
+    satisfide = unique_floor_candidate(possible_words)
+    # find all unknowns that are satisfiable
+    for idx in 1:length(unknowns)
+        for jdx in 1:9
+            if unknowns[idx] == possible_words[1][1][jdx] && satisfide[jdx]
+                if !haskey(discovered,unknowns[idx])
+                    discovered[unknowns[idx]]=[]
+                end
+                push!(discovered[unknowns[idx]], (1,jdx))
+            end
+            if unknowns[idx] == possible_words[1][2][jdx] && satisfide[9+jdx]
+                if !haskey(discovered,unknowns[idx])
+                    discovered[unknowns[idx]]=[]
+                end
+                push!(discovered[unknowns[idx]], (2,jdx))
+            end
+        end
+    end
+    return discovered
+end
+
+function satisfide_varibles(unknowns, possible_words)::Dict{Char,Set}
+    #= 
+    =#
+    strs_to_chars!(unknowns) #statdardize input as chars
+
+
+
+#=     discovered = Dict{Char,Set}()
+    for idx = 1:length(unknowns)
+        for word in possible_words
+            for jdx = 1:9
+                if unknowns[idx] == word[1][jdx]
+                    if !haskey(discovered,unknowns[idx])
+                        discovered[unknowns[idx]]=Set()
+                    end
+                    push!(discovered[unknowns[idx]], (1,jdx))
+                end
+                if unknowns[idx] == word[2][jdx]
+                    if !haskey(discovered,unknowns[idx])
+                        discovered[unknowns[idx]]=Set()
+                    end
+                    push!(discovered[unknowns[idx]], (2,jdx))
+                end
+            end
+        end
+    end
+    return discovered =#
+end
+
+function sudoku_tower_data_structure()::Array{Tuple{String,Array{String,1}},1}
+    sudokuCipherText = Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1}()
+    try#todo: if load fails raise error or generate_cypher
+        println("loading Sudoku Tower Data Structure")
+        _sudokuCipherText = load(joinpath(@__DIR__,"Sudoku_Tower_Data_Structure.jld"))
+        sudokuCipherText = _sudokuCipherText["Sudoku_second_third_block_tower"]
+        #Todo: actually check if loaded correctly
+        #println(length(sudokuCipherText))
+        println("Sudoku Tower Data Structure loaded successfully")
+    catch e
+        println("Sudoku DataStructure failed to load, please run Sudoku generater")
+        println(e)
+        #generate_cypher_block_towers()# takes around 8 minutes on a mac pro
+    end
+    return sudokuCipherText
+end
+
+function floors_to_regex(puzzle)
 
     origin = ["A","B","C","D","E","F","G","H","I"]
+    mappings = symbol_mapping(puzzle, origin)
+    mapping = mappings[1]
+    unknowns = mappings[2]
 
-    tower_1 = []
-    tower_2 = []
-    tower_3 = []
-    
-    for j in [3,2,1]
-        row_a = []
-        row_b = []
-        row_c = []
-        for i in 1:9
-            push!(row_a, puzzle[i][j])
-            push!(row_b, puzzle[i][j+3])
-            push!(row_c, puzzle[i][j+6])
-        end
-        push!(tower_1,row_a)
-        push!(tower_2,row_b)
-        push!(tower_3,row_c)
-    end
-
-    optimal_mapping = function(puzzle)
-        #pick optimal arrangement of rows with in floor for mapping
-        symbol_count = function(arr)
-            count = 0
-            for i = 1:length(arr)
-                if arr[i] != 0
-                    count += 1
-                end
-            end
-            return count
-        end
-
-        floor_arrangement = Dict()
-
-        for i in [1,4,7]
-            optimal = symbol_count(puzzle[i])
-            floor_arrangement[i]=i
-            floor_arrangement[i+1]=i+1
-            floor_arrangement[i+2]=i+2
-            second_row = symbol_count(puzzle[i+1])
-            if second_row > optimal
-                floor_arrangement[i]=i+1
-                floor_arrangement[i+1]=i
-                floor_arrangement[i+2]=i+2
-                optimal = second_row
-            end
-            third_row = symbol_count(puzzle[i+2])
-            if third_row > optimal
-                floor_arrangement[i]=i+2
-                floor_arrangement[i+1]=i+1
-                floor_arrangement[i+2]=i
-                optimal = second_row
-            end
-        end
-        return floor_arrangement
-    end
-
-    #pick optimal arrangement of rows with in tower for mapping
-    floor_arrangement = optimal_mapping(puzzle)
-    # println("floor_arrangement",floor_arrangement)
-    tower_arrangement = optimal_mapping([tower_1..., tower_2..., tower_3...])
-    # println("tower_arrangement",tower_arrangement)
-    # create key mapping for most optimal row of each floor
-    symbol_mapping = function(puzzle, arrangement)
-        mapping = Dict()
-        for i in [1,4,7]
-            mapping[i]=Dict()
-            for idx in [1,2,3,4,5,6,7,8,9]
-                row_index = arrangement[i]
-                if puzzle[row_index][idx] != 0 
-                    mapping[i][puzzle[row_index][idx]] = origin[idx]
-                end
-            end
-        end
-        return mapping
-    end
-
-    row_mapping = symbol_mapping(puzzle, floor_arrangement)
-    tower_mapping = symbol_mapping([tower_1..., tower_2..., tower_3...], tower_arrangement)
-
-    # for idx in [1,2,3,4,5,6,7,8,9]
-    #     if block_1[idx] != 0
-    #         if haskey(row_1_mapping,block_1[idx])
-    #             block_mapping[block_1[idx]] = row_1_mapping[block_1[idx]]
-    #         elseif !(origin[idx] in values(row_1_mapping))
-    #             block_mapping[block_1[idx]] = origin[idx]
-    #         end
-    #     end
-    # end
     # floor regular expression
-
     for idx in [2,3,5,6,8,9]
-        row_mapping[idx] = ["[^ABC]","[^ABC]","[^ABC]","[^DEF]","[^DEF]","[^DEF]","[^GHI]","[^GHI]","[^GHI]"]
-        tower_mapping[idx] = [".",".",".",".",".",".",".",".","."]
+        mapping[idx] = [".",".",".",".",".",".",".",".","."]
     end
 
-    floors_to_regex! = function(puzzle, mapping, arrangement)
-        for idx in [1,2,3,4,5,6,7,8,9]
-            for tidx = [(2,1),(3,1),(5,4),(6,4),(8,7),(9,7)]
-                ridx , midx = tidx
-                row_index = arrangement[ridx] 
-                if puzzle[row_index][idx] != 0
-                    if haskey(mapping[midx],puzzle[row_index][idx])
-                        mapping[ridx][idx] = mapping[midx][puzzle[row_index][idx]]
-                    else
+    for tidx = [(2,1),(5,4),(8,7)] # for each first row and mapping index
+        ridx , midx = tidx
+        for idx in [1,2,3,4,5,6,7,8,9] # for every symbol
+            if puzzle[ridx][idx] != 0
+                if haskey(mapping[midx],puzzle[ridx][idx])
+                    mapping[ridx][idx] = mapping[midx][puzzle[ridx][idx]]
+                else
+                    mapped_digits = values(mapping[midx])
+                    if !isempty(mapped_digits)
+                        mapping[ridx][idx] = join(["(?<",origin[idx],">","[^", values(mapping[midx])..., "])"])
+                    else # incase of completly empty row
+                        mapping[ridx][idx] = join(["(?<",origin[idx],">",".",")"])# todo: optimize this
+                    end
+                end
+            end
+        end
+    end
+    for tidx = [(3,1),(6,4),(9,7)] # for each second row and mapping index
+        ridx , midx = tidx
+        for idx in [1,2,3,4,5,6,7,8,9] # for every symbol
+            if puzzle[ridx][idx] != 0
+                if haskey(mapping[midx],puzzle[ridx][idx])
+                    mapping[ridx][idx] = mapping[midx][puzzle[ridx][idx]]
+                else
+                    seen = false
+                    for jdx = 1:9
+                        if puzzle[ridx-1][jdx] == puzzle[ridx][idx]
+                            mapping[ridx][idx] = join(["\\g<",origin[jdx],">"])
+                            seen = true
+                            break
+                        end
+                    end 
+                    if !seen
                         mapped_digits = values(mapping[midx])
                         if !isempty(mapped_digits)
                             mapping[ridx][idx] = join(["[^", values(mapping[midx])..., "]"])
+                            #mapping[ridx][idx] = join(["(?<",origin[idx],">[^", values(mapping[midx])..., "])"])
                         end
                     end
                 end
@@ -375,134 +406,194 @@ end
         end
     end
 
-    floors_to_regex!(puzzle,row_mapping,floor_arrangement)
-    floors_to_regex!([tower_1..., tower_2..., tower_3...],tower_mapping,tower_arrangement)
-
     floor_regs = Dict()
-    tower_regs = Dict()
+    floor_word_regs = Dict()
 
-    for idx in [2,3,5,6,8,9]
-        floor_regs[idx] = Regex(join(row_mapping[idx]))
-        tower_regs[idx] = Regex(join(tower_mapping[idx]))
+    for idx in [2,5,8]
+        floor_regs[idx] = Regex(join(mapping[idx]))
     end
 
+    for idx in [2,5,8]
+        floor_word_regs[idx] = Regex(join([mapping[idx]...,mapping[idx+1]...]))
+    end
+
+    return floor_regs, floor_word_regs, mapping, unknowns
+
+end
+
+function symbol_mapping(puzzle, origin)
+    # create key mapping for row of each floor
+    mapping = Dict()
+    unknowns = [[],[],[],[],[],[],[],[],[]]
+    for i in [1,4,7]
+        mapping[i]=Dict()
+        for idx in [1,2,3,4,5,6,7,8,9]
+            if puzzle[i][idx] != 0 
+                mapping[i][puzzle[i][idx]] = origin[idx]
+            else
+                push!(unknowns[i], origin[idx])
+            end
+        end
+    end
+    return mapping,unknowns
+end
+
+function reduce_satifide_patterns(sfds, stds, floor_regs, floor_word_regs, tower_regs, tower_word_regs )# todo: better names
     possible_floors = Dict()
     possible_towers = Dict()
 
     for idx in [2,5,8]
-        possible_floors[idx] = Array{Tuple{Array{Char,1},Array{Char,1}},1}()
-        possible_towers[idx] = Array{Tuple{Array{Char,1},Array{Char,1}},1}()
+        possible_floors[idx] = Array{Tuple{String,String},1}()
+        possible_towers[idx] = Array{Tuple{String,String},1}()
     end
 
     for idx in 1:12096 #length(sds)
-        ex = join(sds[idx][1])
+        ex = sfds[idx][1]
+        ex_t = stds[idx][1]
         for fdx in [2,5,8]
             if occursin(floor_regs[fdx], ex) 
-                for kdx in 1: length(sds[idx][2])
-                    ex_ = join(sds[idx][2][kdx])
-                    if occursin(floor_regs[fdx+1],ex_)
-                        push!(possible_floors[fdx],(sds[idx][1],sds[idx][2][kdx]))
+                for kdx in 1: length(sfds[idx][2])
+                    ex_ = ex * sfds[idx][2][kdx]
+                    if occursin(floor_word_regs[fdx],ex_)
+                        push!(possible_floors[fdx],(sfds[idx][1],sfds[idx][2][kdx]))
                     end
                 end
             end
-#=             if occursin(tower_regs[fdx], ex) 
-                for kdx in 1: length(sds[idx][2])
-                    ex_ = join(sds[idx][2][kdx])
-                    if occursin(tower_regs[fdx+1],ex_)
-                        push!(possible_towers[fdx],(sds[idx][1],sds[idx][2][kdx]))
+            if occursin(tower_regs[fdx], ex_t) 
+                for kdx in 1: length(stds[idx][2])
+                    ex_ =  ex_t * stds[idx][2][kdx]
+                    if occursin(tower_word_regs[fdx],ex_)
+                        push!(possible_towers[fdx],(stds[idx][1],stds[idx][2][kdx]))
                     end
                 end
-            end =#
+            end
         end
     end
-    possible_blocks = []
+    return possible_floors, possible_towers
+end
 
-    #= for idx in 1:length(possible_floors[2])
-        block_1=[
-            "A","B","C",
-            possible_floors[2][idx][1][1:3]...,
-            possible_floors[2][idx][2][1:3]...
-        ]
-        blk1mapping = Dict()
-        for row_index in 1:3
-            for idx in [1,2,3]
-                if puzzle[row_index][idx] != 0 
-                    blk1mapping[puzzle[row_index][idx]] = block_1[idx]
-                end
+function sudoku_autocomplete(puzzle::Array{Array{Int64,1},1},sfds::Array{Tuple{String,Array{String,1}},1},stds::Array{Tuple{String,Array{String,1}},1})
+    # build partial mapping for cypher from first row, example, 4 => B, 5=>c.
+    # then use this mapping to generate regular expression for second row and third row
+
+
+    puzzle_t = Array{Array{Int64,1},1}()
+    for hdx in [0,3,6] # tower
+        block_1 = Array{Int64,1}()
+        block_2 = Array{Int64,1}()
+        block_3 = Array{Int64,1}()
+        for idx in [1,2,3] # block rows
+            for jdx in [1,2,3] # block columns
+                push!(block_1,puzzle[idx + 0][jdx + hdx])
+                push!(block_2,puzzle[idx + 3][jdx + hdx])
+                push!(block_3,puzzle[idx + 6][jdx + hdx])
             end
-        end
-        block_2=[
-            puzzle[4][1:3]...,
-            puzzle[5][1:3]...,
-            puzzle[6][1:3]...,
-        ]
+        end 
+        push!(puzzle_t,block_1)
+        push!(puzzle_t,block_2)
+        push!(puzzle_t,block_3)
+    end
+    for i in [1,2,3,4]
 
-        blk2mapping = Dict()
-        for idx in [1,2,3,4,5,6,7,8,9]
-            if block_2[idx] != 0
-                if haskey(blk1mapping,block_2[idx])
-                    blk2mapping[idx] = blk1mapping[block_2[idx]]
-                else
-                    mapped_digits = values(blk1mapping)
-                    if !isempty(mapped_digits)
-                        blk2mapping[idx] = join(["[^", values(blk1mapping)..., "]"])
-                    end
-                end
-            end
-        end
+        # Todo: optimize, combine rows and columns to reduce for loops
+        floor_regs, floor_word_regs, row_mapping, row_unknowns = floors_to_regex(puzzle)
+        tower_regs, tower_word_regs, tower_mapping, tower_unknowns = floors_to_regex(puzzle_t)
 
-        block_3=[
-            puzzle[7][1:3]...,
-            puzzle[8][1:3]...,
-            puzzle[9][1:3]...,
-        ]
-
-        blk3mapping = Dict()
-        for idx in [1,2,3,4,5,6,7,8,9]
-            if block_3[idx] != 0
-                if haskey(blk1mapping,block_3[idx])
-                    blk3mapping[idx] = blk1mapping[block_3[idx]]
-                else
-                    mapped_digits = values(blk1mapping)
-                    if !isempty(mapped_digits)
-                        blk3mapping[idx] = join(["[^", values(blk1mapping)..., "]"])
-                    end
-                end
-            end
-        end
-        block2_regs = Regex(join(blk2mapping))
-        block3_regs = Regex(join(blk3mapping))
-        for idx in 1:12096 
-            ex = join(sds[idx][1])
-                if occursin(block2_regs, ex) 
-                    for kdx in 1: length(sds[idx][2])
-                        ex_ = join(sds[idx][2][kdx])
-                        if occursin(block3_regs,ex_)
-                            push!(possible_blocks,(sds[idx][1],sds[idx][2][kdx]))
+        possible_floors, possible_towers = reduce_satifide_patterns(sfds, stds, floor_regs, floor_word_regs, tower_regs, tower_word_regs)
+        
+        function update_sole_candidates!(second_row, third_row ,sole_floors, possible_floors, row_mapping)
+            for jdx = 1:9
+                if sole_floors[jdx]
+                    _first_row = possible_floors[1][1]
+                    println("first_row ", first_row)
+                    println("first_row[idx] ", first_row[jdx])
+                    key = ""
+                    for (k,v) in row_mapping
+                        println("v ", v, "k ", k)
+                        if v == _first_row[jdx]
+                            key = k
+                            break
                         end
                     end
+                    println(_first_row[jdx])
+                    println(second_row)
+                    println(second_row[jdx])
+                    println(key)
+                    second_row[jdx] = key
                 end
+                if jdx + 1 < 10 && sole_floors[9 + jdx]
+                    _second_row = possible_floors[1][2]
+                    println("second_row ", _second_row)
+                    println("second_row[idx] ", _second_row[jdx])
+                    third_row[jdx+1] = [ k for (k,v) in row_mapping if v == second_row[jdx] ]
+                end
+            end
         end
 
+        for idx in [2,5,8]
+            sole_floors = unique_floor_candidate(possible_floors[idx])
+            println("sole_floors")
+            println(sole_floors)
+            println(possible_floors[2])
+            update_sole_candidates!(puzzle[idx], puzzle[idx + 1], sole_floors, possible_floors[idx], row_mapping[idx-1])
+            sole_towers = unique_floor_candidate(possible_towers[idx])
+            update_sole_candidates!(puzzle_t[idx], puzzle_t[idx + 1], sole_towers, possible_towers, tower_mapping[idx-1])
+        end
+        println("puzzle ", puzzle)
+        println("puzzle_t ", puzzle_t)
+        println("Mapping ", row_mapping)
+        println(length(possible_floors[2]))
+        #= println(possible_floors[2][1])
+        println(possible_floors[2][2]) =#
+
+        #frist_row_sat =   satisfide_varibles(row_unknowns[1]  ,possible_floors[2])
+        #println("1st row satisfiable variables",frist_row_sat)
+        #println("1st row satisfiable variables",keys(frist_row_sat))
+        #println("1st row satisfide possitions",values(frist_row_sat))
+
+        println(length(possible_floors[5]))
+        #= println(possible_floors[5][1])
+        println(possible_floors[5][2]) =#
+
+        fourth_row_sat =  overlapping_tiles(row_unknowns[4]  ,possible_floors[5])
+        println("4th row satisfide", keys(fourth_row_sat))
+
+        println(length(possible_floors[8]))
+        #= println(possible_floors[8][1])
+        println(possible_floors[8][2])
+    =#
+        seventh_row_sat = overlapping_tiles(row_unknowns[7]  ,possible_floors[8])
+        println("7th row satisfide",keys(seventh_row_sat))
+        println("sole floor cannidates", unique_floor_candidate(possible_floors[8]))
+
+        println("")
+
+        println(length(possible_towers[2]))
+        #= println(possible_towers[2][1])
+        println(possible_towers[2][2])
+        println(possible_towers[2][3])
+        println(possible_towers[2][4]) =#
+
+        #println("tower unknowns", tower_unknowns[1], "satisfiable rows ",possible_towers[2])
+        #first_tower_sat = satisfide_varibles(tower_unknowns[1],possible_towers[2])
+        #println("1st tower satisfiable variables",first_tower_sat)
+        #println("1st tower satisfiable variables",keys(first_tower_sat))
+        #println("1st tower satisfide possitions",values(first_tower_sat))
+
+        tower_sat = overlapping_tiles(tower_unknowns[4],possible_towers[5])
+        println("4th tower satisfide",keys(tower_sat))
+        tower_sat = overlapping_tiles(tower_unknowns[7],possible_towers[8])
+        println("7th tower satisfide",keys(tower_sat))
+
+    #=     println(length(possible_towers[5]))
+        println(length(possible_towers[8]))
+    =#
+        println("")
     end
- =#    
-    #println(length(possible_blocks))
-    
-    println(length(possible_floors[2]))
-    println(length(possible_floors[5]))
-    println(length(possible_floors[8]))
-    println("")
-#=     println(length(possible_towers[2]))
-    println(length(possible_towers[5]))
-    println(length(possible_towers[8]))
-    println("") =#
     return puzzle
 end
 
-#sudoku_cipher_text()
-generate_cypher_forth_row() =#
-
-function sudoku_autocomplete(_puzzle::Array{Array{Int64,1},1} ,sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
+#= function sudoku_autocomplete(_puzzle::Array{Array{Int64,1},1} ,sds::Array{Tuple{Array{Char,1},Array{Array{Char,1},1}},1})
     #= 
     stratigie: given a puzzle and Sudoku Data Structure, transpose first, second, eighth and ninth columns. Convert transpose columns and rows 
     first, second, eight and ninth into regular expressions using provided hints. Search Sudoku data structure using regular 
@@ -594,8 +685,9 @@ function sudoku_autocomplete(_puzzle::Array{Array{Int64,1},1} ,sds::Array{Tuple{
     println("possible 9/8 row ",length(possible_rows[9]))
     println("possible 9/8 column ",length(possible_columns[9]))
 
-end
-#sudoku_cipher_text()
+end =#
+sfds = sudoku_cipher_text()
+stds = sudoku_tower_data_structure()
 #generate_cypher_forth_row()
 #generate_cypher()
-generate_cypher_block_towers()
+#generate_cypher_block_towers()

@@ -17,7 +17,7 @@ pkg> add Doku_Autocomplete  # Press ']' to enter the Pkg REPL mode.
 
 ## How it works
 
-Coming soon..
+each 3 row combinations composing rows of blocks, that is row 1,2,3 and 4,5,6 and 7,8,9 are used to create a regular expression. that regular expression is then used to lookup all satisfiable combinations from our lookup table. The same is done for each 3 column combinations composing towers. once all combinations are retrieved, the overlapping floors and towers are used to further eliminate unknown cells.
 
 ## Why it works
 Sudoku puzzles can be created by following different instructions stemming from a valid first row. For example,
